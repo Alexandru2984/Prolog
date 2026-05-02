@@ -1,0 +1,22 @@
+[Unit]
+Description=Prolog Security Expert System
+After=network.target
+
+[Service]
+Type=simple
+User=micu
+Group=micu
+WorkingDirectory=/home/micu/prolog
+EnvironmentFile=/home/micu/prolog/.env
+ExecStart=/usr/bin/swipl -q -f /home/micu/prolog/server.pl -- --port ${APP_PORT}
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/home/micu/prolog/logs /home/micu/prolog/data
+StandardOutput=append:/home/micu/prolog/logs/app.log
+StandardError=append:/home/micu/prolog/logs/app.err.log
+
+[Install]
+WantedBy=multi-user.target
