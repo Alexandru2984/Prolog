@@ -18,10 +18,11 @@
 :- use_module(export).
 :- use_module(target_probe).
 
-:- http_handler(root(.), auth_wrap(home), []).
-:- http_handler(root(audit), auth_wrap(audit_page), []).
-:- http_handler(root(results), auth_wrap(results_page), []).
-:- http_handler(root(sessions), auth_wrap(sessions_page), []).
+:- http_handler(root(.), home, []).
+:- http_handler(root(audit), audit_page, []).
+:- http_handler(root(results), results_page, []).
+:- http_handler(root(sessions), sessions_page, []).
+:- http_handler(root(login), login_handler, []).
 :- http_handler(root(api/audit), auth_wrap(api_audit), []).
 :- http_handler(root('public/css/app.css'), serve_css, []).
 :- http_handler(root('public/js/app.js'), serve_js, []).
@@ -36,6 +37,17 @@ start_server(Host, Port) :-
 auth_wrap(Goal, Request) :-
     (   authorized(Request)
     ->  call(Goal, Request)
+    ;   throw(http_reply(authorise(basic('Prolog Security Expert System'))))
+    ).
+
+user_type(Request, admin) :-
+    authorized(Request),
+    !.
+user_type(_, guest).
+
+login_handler(Request) :-
+    (   authorized(Request)
+    ->  http_redirect(moved_temporary, '/', Request)
     ;   throw(http_reply(authorise(basic('Prolog Security Expert System'))))
     ).
 
@@ -77,10 +89,11 @@ safe_export_name(File) :-
     \+ sub_atom(File, _, _, _, '..'),
     (file_name_extension(_, json, File) ; file_name_extension(_, md, File)).
 
-home(_Request) :-
+home(Request) :-
+    user_type(Request, UserType),
     reply_html_page(
         title('Prolog Security Expert System'),
-        \layout_page('Security Expert System', [
+        \layout_page('Security Expert System', UserType, [
             section(class(hero), [
                 div([
                     p(class(eyebrow), 'Rule-based VPS and web posture analysis'),
@@ -122,6 +135,7 @@ profile_cards_([Id-Label|Rest]) -->
     profile_cards_(Rest).
 
 audit_page(Request) :-
+    user_type(Request, UserType),
     http_parameters(Request, [
         profile(Profile, [default(default)]),
         target(Target, [default('prolog.micutu.com')])
@@ -130,7 +144,7 @@ audit_page(Request) :-
     forms:facts_for_profile(ProfileAtom, SelectedFacts),
     reply_html_page(
         title('Run audit'),
-        \layout_page('Run Audit', [
+        \layout_page('Run Audit', UserType, [
             section(class(scan_intro), [
                 h2('Audit a VPS, site, or app endpoint'),
                 p('Enter a domain or IP. The app performs passive HTTP/HTTPS checks for Cloudflare, TLS, HSTS, CSP, and common security headers. The toggles below are manual assumptions for things that cannot be verified safely from outside, such as backups, SSH policy, database exposure, uploads, and monitoring.')
@@ -140,11 +154,16 @@ audit_page(Request) :-
                     label([span('Target domain/IP'), input([type(text), name(target), value(Target), maxlength(253), placeholder('example.com')])]),
                     label([span('Sample profile'), \profile_select(ProfileAtom)]),
                     label([span('Report label'), input([type(text), name(label), value('production-audit'), maxlength(80)])]),
+                    \guest_warning(UserType),
                     button([class(button), type(submit)], 'Run passive audit')
                 ]),
                 \fact_groups_form(SelectedFacts)
             ])
         ])).
+
+guest_warning(guest) -->
+    html(div(class('banner warning'), 'DEMO MODE: Submission will use mock data')).
+guest_warning(admin) --> [].
 
 profile_select(Current) -->
     { forms:profile_options(Options) },
@@ -187,10 +206,43 @@ facts_html([Key|Rest], Facts) -->
     facts_html(Rest, Facts).
 
 results_page(Request) :-
+    user_type(Request, UserType),
+    (   UserType == guest
+    ->  results_page_guest(Request)
+    ;   results_page_admin(Request)
+    ).
+
+results_page_guest(Request) :-
     \+ memberchk(method(post), Request),
     !,
     reply_json_dict(_{error:"method_not_allowed", allowed:["POST"]}, [status(405)]).
-results_page(Request) :-
+results_page_guest(Request) :-
+    http_read_data(Request, _FormData, [form_data(mime)]),
+    forms:facts_for_profile(weak_vps, AuditFacts),
+    audit_engine:audit(AuditFacts, Result),
+    Observations = [_{kind:target, label:'Target', value:'DEMO-TARGET'}, _{kind:info, label:'Mode', value:'Guest demo (mock data)'}],
+    DetectedFacts = [],
+    reply_html_page(
+        title('Audit results (Demo)'),
+        \layout_page('Audit Results', guest, [
+            div(class('banner info'), 'DEMO MODE: Showing results for a sample Weak VPS. Probing and saving are disabled for guests.'),
+            \score_block(Result),
+            section(class(panel), [h3('What was audited'), \observation_cards(Observations)]),
+            section(class(panel), [h3('Auto-detected facts'), \detected_facts_list(DetectedFacts)]),
+            div(class(result_links), [
+                a([class(button), href('/audit')], 'New audit')
+            ]),
+            section(class(panel), [h3('Risks'), \risk_cards(Result.risks)]),
+            section(class(panel), [h3('Recommendations'), \recommendation_list(Result.recommendations)]),
+            section(class(panel), [h3('Explanation chain'), \explanation_list(Result.explanations)]),
+            section(class(panel), [h3('Checklist'), \checklist(Result.checklist)])
+        ])).
+
+results_page_admin(Request) :-
+    \+ memberchk(method(post), Request),
+    !,
+    reply_json_dict(_{error:"method_not_allowed", allowed:["POST"]}, [status(405)]).
+results_page_admin(Request) :-
     http_read_data(Request, FormData, [form_data(mime)]),
     forms:facts_from_form(FormData, ManualFacts),
     form_value(FormData, target, TargetInput, "prolog.micutu.com"),
@@ -205,7 +257,7 @@ results_page(Request) :-
     atomic_list_concat(['/exports/', MdFile], MdHref),
     reply_html_page(
         title('Audit results'),
-        \layout_page('Audit Results', [
+        \layout_page('Audit Results', admin, [
             \score_block(Result),
             section(class(panel), [h3('What was audited'), \observation_cards(Observations)]),
             section(class(panel), [h3('Auto-detected facts'), \detected_facts_list(DetectedFacts)]),
@@ -301,24 +353,41 @@ checklist_items([Item|Rest]) -->
     html(li([code(Item.id), span(Item.text)])),
     checklist_items(Rest).
 
-sessions_page(_Request) :-
-    persistence:list_audit_sessions(Sessions),
+sessions_page(Request) :-
+    user_type(Request, UserType),
+    (   UserType == admin
+    ->  persistence:list_audit_sessions(Sessions)
+    ;   mock_sessions(Sessions)
+    ),
     reply_html_page(
         title('Saved reports'),
-        \layout_page('Saved Reports', [
+        \layout_page('Saved Reports', UserType, [
             section(class(panel), [
-                h3('JSON exports'),
-                \session_list(Sessions)
+                \sessions_header(UserType),
+                \session_list(Sessions, UserType)
             ])
         ])).
 
-session_list([]) --> html(p(class(empty), 'No saved reports yet.')).
-session_list(Sessions) --> html(ul(class(clean_list), \session_items(Sessions))).
-session_items([]) --> [].
-session_items([Session|Rest]) -->
-    { atomic_list_concat(['/exports/', Session.file], Href) },
-    html(li([code(Session.file), a([href(Href)], 'Open JSON')])),
-    session_items(Rest).
+sessions_header(guest) --> html(h3('Sample profiles (Mock)')).
+sessions_header(admin) --> html(h3('JSON exports')).
+
+mock_sessions(Sessions) :-
+    findall(_{id:Id, file:File, label:Label},
+            (facts:sample_profile(Id, Label, _), format(atom(File), 'sample-~w.json', [Id])),
+            Sessions).
+
+session_list([], _) --> html(p(class(empty), 'No saved reports yet.')).
+session_list(Sessions, UserType) --> html(ul(class(clean_list), \session_items(Sessions, UserType))).
+session_items([], _) --> [].
+session_items([Session|Rest], UserType) -->
+    { (UserType == admin
+      -> atomic_list_concat(['/exports/', Session.file], Href), LinkText = 'Open JSON'
+      ;  atomic_list_concat(['/audit?profile=', Session.id], Href), LinkText = 'Sample profile'
+      )
+    },
+    html(li([code(Session.file), span(Session.label), a([href(Href)], LinkText)])),
+    session_items(Rest, UserType).
+
 
 api_audit(Request) :-
     \+ memberchk(method(post), Request),
@@ -340,7 +409,7 @@ facts_from_json(List, Facts) :-
 facts_from_json(_, Facts) :-
     facts:default_facts(Facts).
 
-layout_page(Title, Body) -->
+layout_page(Title, UserType, Body) -->
     html([
         link([rel(stylesheet), href('/public/css/app.css')]),
         div(class(shell), [
@@ -352,16 +421,23 @@ layout_page(Title, Body) -->
                 nav(class(nav), [
                     a(href('/'), 'Dashboard'),
                     a(href('/audit'), 'Run audit'),
-                    a(href('/sessions'), 'Saved reports')
+                    a(href('/sessions'), 'Saved reports'),
+                    \login_link(UserType)
                 ])
             ]),
             main(class(main), [
                 header(class(topbar), [
                     h1(Title),
-                    div(class(status_pill), 'Defensive analysis only')
+                    \status_pill(UserType)
                 ]),
                 div(class(content), Body)
             ])
         ]),
         script([src('/public/js/app.js')], '')
     ]).
+
+login_link(guest) --> html(a(href('/login'), 'Admin Login')).
+login_link(admin) --> [].
+
+status_pill(guest) --> html(div(class(status_pill_guest), 'Demo mode')).
+status_pill(admin) --> html(div(class(status_pill_admin), 'Admin mode')).

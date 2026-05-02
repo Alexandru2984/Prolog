@@ -538,3 +538,44 @@ input[type="text"]:focus {
   button { width: 100%; }
   .group_grid { grid-template-columns: 1fr; }
 }
+
+.status_pill_guest {
+  white-space: nowrap;
+  color: var(--cyan);
+  border: 1px solid rgba(69, 199, 255, .45);
+  background: rgba(69, 199, 255, .08);
+  padding: 7px 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.status_pill_admin {
+  white-space: nowrap;
+  color: var(--green);
+  border: 1px solid rgba(81, 240, 170, .45);
+  background: rgba(81, 240, 170, .08);
+  padding: 7px 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.banner {
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  border-left: 4px solid var(--line);
+  font-weight: 600;
+}
+
+.banner.warning {
+  border-color: var(--orange);
+  background: rgba(255, 138, 76, .08);
+  color: var(--orange);
+}
+
+.banner.info {
+  border-color: var(--cyan);
+  background: rgba(69, 199, 255, .08);
+  color: var(--cyan);
+}
