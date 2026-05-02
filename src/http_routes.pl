@@ -130,7 +130,7 @@ audit_page(Request) :-
 
 profile_select(Current) -->
     { forms:profile_options(Options) },
-    html(select([name(profile), onchange('window.location="/audit?profile="+this.value')], [
+    html(select([id(profile_select), name(profile)], [
         option([value(default)], 'Default'),
         \profile_options_html(Options, Current)
     ])).

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily backup for Prolog Security Expert System
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+Persistent=true
+Unit=prolog-security-backup.service
+
+[Install]
+WantedBy=timers.target

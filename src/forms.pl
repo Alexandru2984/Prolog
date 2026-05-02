@@ -13,7 +13,7 @@ fact_groups([
     group('TLS', [https_enabled, tls_auto_renewal_enabled, tls_modern_protocols_only]),
     group('Cloudflare', [cloudflare_proxy_enabled, origin_ip_exposed]),
     group('Application runtime', [app_bound_to_public_interface, public_app, debug_mode_enabled, default_admin_path_enabled, app_has_rate_limiting]),
-    group('Database', [postgres_publicly_exposed, database_requires_tls, weak_firewall_posture, exposes_phpmyadmin, exposes_env_file, exposes_git_directory]),
+    group('Database', [database_in_use, postgres_publicly_exposed, database_requires_tls, weak_firewall_posture, exposes_phpmyadmin, exposes_env_file, exposes_git_directory]),
     group('Uploads/files', [uploads_enabled, upload_extension_validation, upload_size_limit]),
     group('Backups', [has_backups, backups_tested]),
     group('Monitoring', [has_monitoring, has_log_rotation, production_service])

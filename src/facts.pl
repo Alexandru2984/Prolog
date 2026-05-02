@@ -21,6 +21,7 @@ known_fact(public_app, 'Application is publicly reachable').
 known_fact(debug_mode_enabled, 'Debug mode enabled').
 known_fact(default_admin_path_enabled, 'Default admin path enabled').
 known_fact(app_has_rate_limiting, 'Application has rate limiting').
+known_fact(database_in_use, 'Application uses a database connection').
 known_fact(postgres_publicly_exposed, 'PostgreSQL publicly exposed').
 known_fact(database_requires_tls, 'Database requires TLS').
 known_fact(weak_firewall_posture, 'Firewall posture is weak').
@@ -38,7 +39,7 @@ known_fact(production_service, 'Production service').
 
 default_facts([
     ssh_password_login_enabled(false),
-    ssh_port_public(true),
+    ssh_port_public(false),
     ssh_root_login_enabled(false),
     nginx_reverse_proxy_enabled(true),
     nginx_has_hsts(false),
@@ -54,6 +55,7 @@ default_facts([
     debug_mode_enabled(false),
     default_admin_path_enabled(false),
     app_has_rate_limiting(false),
+    database_in_use(false),
     postgres_publicly_exposed(false),
     database_requires_tls(false),
     weak_firewall_posture(false),
@@ -77,6 +79,7 @@ sample_profile(generic_hardened_vps, 'Generic hardened VPS', [
     tls_modern_protocols_only(true), cloudflare_proxy_enabled(true), origin_ip_exposed(false),
     app_bound_to_public_interface(false), public_app(true), debug_mode_enabled(false),
     default_admin_path_enabled(false), app_has_rate_limiting(true),
+    database_in_use(false),
     postgres_publicly_exposed(false), database_requires_tls(true), weak_firewall_posture(false),
     exposes_phpmyadmin(false), exposes_env_file(false), exposes_git_directory(false),
     uploads_enabled(false), upload_extension_validation(true), upload_size_limit(true),
@@ -90,6 +93,7 @@ sample_profile(weak_vps, 'Weak VPS', [
     tls_modern_protocols_only(false), cloudflare_proxy_enabled(false), origin_ip_exposed(true),
     app_bound_to_public_interface(true), public_app(true), debug_mode_enabled(true),
     default_admin_path_enabled(true), app_has_rate_limiting(false),
+    database_in_use(true),
     postgres_publicly_exposed(true), database_requires_tls(false), weak_firewall_posture(true),
     exposes_phpmyadmin(true), exposes_env_file(true), exposes_git_directory(true),
     uploads_enabled(true), upload_extension_validation(false), upload_size_limit(false),
@@ -103,6 +107,7 @@ sample_profile(django_nginx, 'Django app behind Nginx', [
     tls_modern_protocols_only(true), cloudflare_proxy_enabled(false), origin_ip_exposed(true),
     app_bound_to_public_interface(false), public_app(true), debug_mode_enabled(false),
     default_admin_path_enabled(true), app_has_rate_limiting(true),
+    database_in_use(true),
     postgres_publicly_exposed(false), database_requires_tls(false), weak_firewall_posture(false),
     exposes_phpmyadmin(false), exposes_env_file(false), exposes_git_directory(false),
     uploads_enabled(true), upload_extension_validation(true), upload_size_limit(true),
@@ -116,6 +121,7 @@ sample_profile(shiny_r_nginx, 'Shiny/R app behind Nginx', [
     tls_modern_protocols_only(true), cloudflare_proxy_enabled(false), origin_ip_exposed(true),
     app_bound_to_public_interface(false), public_app(true), debug_mode_enabled(false),
     default_admin_path_enabled(false), app_has_rate_limiting(false),
+    database_in_use(false),
     postgres_publicly_exposed(false), database_requires_tls(false), weak_firewall_posture(false),
     exposes_phpmyadmin(false), exposes_env_file(false), exposes_git_directory(false),
     uploads_enabled(false), upload_extension_validation(true), upload_size_limit(true),
@@ -129,6 +135,7 @@ sample_profile(static_cloudflare, 'Static site behind Cloudflare', [
     tls_modern_protocols_only(true), cloudflare_proxy_enabled(true), origin_ip_exposed(false),
     app_bound_to_public_interface(false), public_app(true), debug_mode_enabled(false),
     default_admin_path_enabled(false), app_has_rate_limiting(true),
+    database_in_use(false),
     postgres_publicly_exposed(false), database_requires_tls(false), weak_firewall_posture(false),
     exposes_phpmyadmin(false), exposes_env_file(false), exposes_git_directory(false),
     uploads_enabled(false), upload_extension_validation(true), upload_size_limit(true),
@@ -142,6 +149,7 @@ sample_profile(api_uploads, 'API service with uploads', [
     tls_modern_protocols_only(true), cloudflare_proxy_enabled(true), origin_ip_exposed(false),
     app_bound_to_public_interface(false), public_app(true), debug_mode_enabled(false),
     default_admin_path_enabled(false), app_has_rate_limiting(false),
+    database_in_use(true),
     postgres_publicly_exposed(false), database_requires_tls(true), weak_firewall_posture(false),
     exposes_phpmyadmin(false), exposes_env_file(false), exposes_git_directory(false),
     uploads_enabled(true), upload_extension_validation(false), upload_size_limit(true),

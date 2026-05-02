@@ -2,6 +2,7 @@
 logs/
 data/uploads/
 data/exports/
+data/backups/
 data/*.db
 data/*.sqlite
 data/*.sqlite3

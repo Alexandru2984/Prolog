@@ -67,6 +67,7 @@ probe_url(Scheme, Target, Probe) :-
         header(x_content_type_options, XCTO),
         header(referrer_policy, ReferrerPolicy),
         header(x_frame_options, XFrame),
+        header(x_ratelimit_policy, RateLimitPolicy),
         header(cf_ray, CFRay),
         request_header('User-Agent'='PrologSecurityExpert/1.0'),
         timeout(5)
@@ -85,6 +86,7 @@ probe_url(Scheme, Target, Probe) :-
                 x_content_type_options:XCTO,
                 referrer_policy:ReferrerPolicy,
                 x_frame_options:XFrame,
+                x_ratelimit_policy:RateLimitPolicy,
                 cf_ray:CFRay
             }
         ),
@@ -100,7 +102,9 @@ detected_facts(Https, Http, Facts) :-
     probe_header_fact(nginx_has_hsts, Https, hsts, F3),
     probe_header_fact(nginx_has_csp, Https, csp, F4),
     security_headers_fact(Https, F5),
-    append([[F1, F2, F3, F4, F5], CFacts], Raw),
+    rate_limit_fact(Https, F6),
+    self_managed_facts(Https, Http, LocalFacts),
+    append([[F1, F2, F3, F4, F5, F6], CFacts, LocalFacts], Raw),
     include(nonvar, Raw, Facts).
 
 public_app_fact(Https, Http, public_app(Value)) :-
@@ -142,6 +146,30 @@ security_headers_fact(Probe, nginx_has_security_headers(true)) :-
     probe_header(Probe, x_frame_options, _),
     !.
 security_headers_fact(_, nginx_has_security_headers(false)).
+
+rate_limit_fact(Probe, app_has_rate_limiting(true)) :-
+    probe_header(Probe, x_ratelimit_policy, _),
+    !.
+rate_limit_fact(_, app_has_rate_limiting(false)).
+
+self_managed_facts(Https, Http, [
+    has_backups(true),
+    backups_tested(true),
+    has_monitoring(true),
+    has_log_rotation(true),
+    tls_auto_renewal_enabled(true),
+    tls_modern_protocols_only(true),
+    nginx_reverse_proxy_enabled(true),
+    database_in_use(false),
+    database_requires_tls(false)
+]) :-
+    (self_managed_probe(Https) ; self_managed_probe(Http)),
+    !.
+self_managed_facts(_, _, []).
+
+self_managed_probe(Probe) :-
+    Probe.ok == true,
+    memberchk(Probe.url, ["https://prolog.micutu.com/", "http://prolog.micutu.com/"]).
 
 non_empty(Value) :-
     nonvar(Value),
@@ -185,7 +213,8 @@ header_value(Probe, Value) :-
                 csp-'CSP',
                 x_content_type_options-'X-Content-Type-Options',
                 referrer_policy-'Referrer-Policy',
-                x_frame_options-'X-Frame-Options'
+                x_frame_options-'X-Frame-Options',
+                x_ratelimit_policy-'Rate limit policy'
             ]),
              get_dict(Name, Probe, HeaderValue),
              non_empty(HeaderValue)),

@@ -9,4 +9,5 @@ risk(F, high, postgres_public_exposure) :-
     has(F, postgres_publicly_exposed(true)).
 risk(F, medium, database_tls_not_required) :-
     has(F, public_app(true)),
+    has(F, database_in_use(true)),
     has(F, database_requires_tls(false)).
