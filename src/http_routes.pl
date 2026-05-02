@@ -8,7 +8,7 @@
 :- use_module(library(http/html_write)).
 :- use_module(library(http/http_json)).
 :- use_module(library(http/http_header)).
-:- use_module(library(base64)).
+:- use_module(library(http/http_session)).
 :- use_module(config).
 :- use_module(facts).
 :- use_module(forms).
@@ -23,10 +23,19 @@
 :- http_handler(root(results), results_page, []).
 :- http_handler(root(sessions), sessions_page, []).
 :- http_handler(root(login), login_handler, []).
+:- http_handler(root(logout), logout_handler, []).
 :- http_handler(root(api/audit), auth_wrap(api_audit), []).
 :- http_handler(root('public/css/app.css'), serve_css, []).
 :- http_handler(root('public/js/app.js'), serve_js, []).
 :- http_handler(root(exports), auth_wrap(export_file), [prefix]).
+
+:- http_set_session_options([
+    create(noauto),
+    timeout(3600),
+    cookie(prolog_security_session),
+    path(/),
+    samesite(strict)
+]).
 
 start_server(Host, Port) :-
     Address = Host:Port,
@@ -37,7 +46,7 @@ start_server(Host, Port) :-
 auth_wrap(Goal, Request) :-
     (   authorized(Request)
     ->  call(Goal, Request)
-    ;   throw(http_reply(authorise(basic('Prolog Security Expert System'))))
+    ;   admin_required(Request)
     ).
 
 user_type(Request, admin) :-
@@ -46,24 +55,95 @@ user_type(Request, admin) :-
 user_type(_, guest).
 
 login_handler(Request) :-
-    (   authorized(Request)
-    ->  http_redirect(moved_temporary, '/', Request)
-    ;   throw(http_reply(authorise(basic('Prolog Security Expert System'))))
-    ).
-
-authorized(Request) :-
-    config:env_bool('APP_BASIC_AUTH_ENABLED', false, false),
+    memberchk(method(post), Request),
     !,
-    Request = Request.
-authorized(Request) :-
+    http_read_data(Request, FormData, [form_data(mime)]),
+    login_credentials(FormData, Username, Password),
+    (   valid_admin_credentials(Username, Password)
+    ->  http_open_session(_SessionId, [renew(true)]),
+        http_session_retractall(_),
+        http_session_assert(logged_in(admin)),
+        http_session_assert(login_at(now)),
+        http_redirect(see_other, '/', Request)
+    ;   reply_login_page(invalid_credentials)
+    ).
+login_handler(Request) :-
+    authorized(Request),
+    !,
+    http_redirect(see_other, '/', Request).
+login_handler(_Request) :-
+    reply_login_page(none).
+
+logout_handler(Request) :-
+    memberchk(method(post), Request),
+    !,
+    (   http_in_session(SessionId)
+    ->  http_close_session(SessionId)
+    ;   true
+    ),
+    http_redirect(see_other, '/', Request).
+logout_handler(Request) :-
+    http_redirect(see_other, '/', Request).
+
+authorized(_Request) :-
+    http_in_session(_),
+    catch(http_session_data(logged_in(admin)), _, fail).
+
+login_credentials(FormData, Username, Password) :-
+    form_value(FormData, username, Username, ""),
+    form_value(FormData, password, Password, "").
+
+valid_admin_credentials(Username, Password) :-
     config:env_default('APP_USERNAME', admin, UserAtom),
     config:env_default('APP_PASSWORD', change_me, PassAtom),
-    memberchk(authorization(Auth), Request),
-    sub_atom(Auth, 0, _, EncStart, 'Basic '),
-    sub_atom(Auth, 6, EncStart, 0, Encoded),
-    base64:base64(Decoded, Encoded),
-    atomic_list_concat([UserAtom, PassAtom], ':', Expected),
-    atom_string(Expected, Decoded).
+    atom_string(UserAtom, ExpectedUser),
+    atom_string(PassAtom, ExpectedPass),
+    value_string(Username, UsernameString),
+    value_string(Password, PasswordString),
+    UsernameString == ExpectedUser,
+    PasswordString == ExpectedPass,
+    ExpectedPass \= "",
+    ExpectedPass \= "change_me".
+
+value_string(Value, String) :-
+    string(Value),
+    !,
+    String = Value.
+value_string(Value, String) :-
+    atom(Value),
+    !,
+    atom_string(Value, String).
+value_string(Value, String) :-
+    term_string(Value, String).
+
+admin_required(Request) :-
+    memberchk(path(Path), Request),
+    (   sub_atom(Path, 0, _, _, '/api/')
+    ->  reply_json_dict(_{error:"admin_login_required"}, [status(401)])
+    ;   sub_atom(Path, 0, _, _, '/exports')
+    ->  reply_json_dict(_{error:"admin_login_required"}, [status(401)])
+    ;   http_redirect(see_other, '/login', Request)
+    ).
+
+reply_login_page(Reason) :-
+    reply_html_page(
+        title('Admin login'),
+        \layout_page('Admin Login', guest, [
+            section(class(login_panel), [
+                h2('Admin login'),
+                p('Use the configured admin account to run live probes, save reports, access exports, and call the API. Public visitors remain in demo mode.'),
+                \login_error(Reason),
+                form([class(login_form), method(post), action('/login')], [
+                    label([span('Username'), input([type(text), name(username), autocomplete(username), maxlength(80), required(required)])]),
+                    label([span('Password'), input([type(password), name(password), autocomplete('current-password'), maxlength(200), required(required)])]),
+                    button([class(button), type(submit)], 'Login')
+                ])
+            ])
+        ])).
+
+login_error(invalid_credentials) -->
+    html(div(class('banner warning'), 'Invalid admin credentials.')).
+login_error(_) --> [].
 
 serve_css(Request) :-
     http_reply_file('public/css/app.css', [mime_type('text/css')], Request).
@@ -437,7 +517,10 @@ layout_page(Title, UserType, Body) -->
     ]).
 
 login_link(guest) --> html(a(href('/login'), 'Admin Login')).
-login_link(admin) --> [].
+login_link(admin) -->
+    html(form([class(nav_logout), method(post), action('/logout')], [
+        button([type(submit)], 'Logout')
+    ])).
 
 status_pill(guest) --> html(div(class(status_pill_guest), 'Demo mode')).
 status_pill(admin) --> html(div(class(status_pill_admin), 'Admin mode')).

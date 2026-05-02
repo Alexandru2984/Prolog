@@ -9,7 +9,7 @@ Deployment domain: `https://prolog.micutu.com`
 - Dark responsive web UI with dashboard, audit form, result cards, saved report links, JSON export, and Markdown export.
 - Rule modules for SSH, Nginx, TLS, Cloudflare, app runtime, database exposure, uploads, backups, monitoring, and logging.
 - Sample profiles: generic hardened VPS, weak VPS, Django behind Nginx, Shiny/R behind Nginx, static site behind Cloudflare, and API service with uploads.
-- App basic auth through `.env`.
+- Public demo mode for guests and session-based admin login for live probes, exports, and API access.
 - JSON-file persistence in `data/exports/`.
 - plunit test suite.
 
@@ -47,7 +47,6 @@ Key variables:
 - `DB_BACKEND=json_file`
 - `LOG_DIR=/home/micu/prolog/logs`
 - `DATA_DIR=/home/micu/prolog/data`
-- `APP_BASIC_AUTH_ENABLED=true`
 - `APP_USERNAME=admin`
 - `APP_PASSWORD=<set in .env>`
 
@@ -130,7 +129,13 @@ or:
 
 ## Database Notes
 
-The production app currently uses JSON-file persistence. Exports are stored under `data/exports/`, ignored by Git, and protected behind application basic auth because reports can contain sensitive posture information.
+The production app currently uses JSON-file persistence. Exports are stored under `data/exports/`, ignored by Git, and protected behind admin session login because reports can contain sensitive posture information.
+
+## Authentication
+
+Guests can browse the dashboard and run demo audits that use mock data only. Guests cannot run live target probes, save reports, access exports, or call the JSON API.
+
+Admin login is available at `/login` and uses `APP_USERNAME` / `APP_PASSWORD` from `.env`. The session cookie is named `prolog_security_session`, expires after one hour of inactivity, and is flagged by Nginx as `Secure`, `HttpOnly`, and `SameSite=Strict`.
 
 An idempotent PostgreSQL schema is provided in `scripts/migrate_db.sql` for future DB-backed sessions. Do not hardcode credentials; use `.env` and provision a dedicated database user manually.
 

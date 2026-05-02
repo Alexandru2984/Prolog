@@ -33,7 +33,10 @@ page(Title, UserType, Body) -->
     ]).
 
 login_link(guest) --> html(a(href('/login'), 'Admin Login')).
-login_link(admin) --> [].
+login_link(admin) -->
+    html(form([class(nav_logout), method(post), action('/logout')], [
+        button([type(submit)], 'Logout')
+    ])).
 
 status_pill(guest) --> html(div(class(status_pill_guest), 'Demo mode')).
 status_pill(admin) --> html(div(class(status_pill_admin), 'Admin mode')).
