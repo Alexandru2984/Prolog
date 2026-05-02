@@ -9,7 +9,7 @@ Deployment domain: `https://prolog.micutu.com`
 - Dark responsive web UI with dashboard, audit form, result cards, saved report links, JSON export, and Markdown export.
 - Rule modules for SSH, Nginx, TLS, Cloudflare, app runtime, database exposure, uploads, backups, monitoring, and logging.
 - Sample profiles: generic hardened VPS, weak VPS, Django behind Nginx, Shiny/R behind Nginx, static site behind Cloudflare, and API service with uploads.
-- Optional app basic auth through `.env`.
+- App basic auth through `.env`.
 - JSON-file persistence in `data/exports/`.
 - plunit test suite.
 
@@ -47,9 +47,9 @@ Key variables:
 - `DB_BACKEND=json_file`
 - `LOG_DIR=/home/micu/prolog/logs`
 - `DATA_DIR=/home/micu/prolog/data`
-- `APP_BASIC_AUTH_ENABLED=false`
+- `APP_BASIC_AUTH_ENABLED=true`
 - `APP_USERNAME=admin`
-- `APP_PASSWORD=change_me`
+- `APP_PASSWORD=<set in .env>`
 
 PostgreSQL placeholders are present in `.env`, but v1 uses JSON-file persistence to avoid provisioning production database credentials or ODBC DSNs automatically.
 
@@ -130,7 +130,7 @@ or:
 
 ## Database Notes
 
-The production app currently uses JSON-file persistence. Exports are stored under `data/exports/`, which is ignored by Git because reports can contain sensitive posture information.
+The production app currently uses JSON-file persistence. Exports are stored under `data/exports/`, ignored by Git, and protected behind application basic auth because reports can contain sensitive posture information.
 
 An idempotent PostgreSQL schema is provided in `scripts/migrate_db.sql` for future DB-backed sessions. Do not hardcode credentials; use `.env` and provision a dedicated database user manually.
 

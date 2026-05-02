@@ -6,6 +6,7 @@
 
 :- use_module(library(http/http_open)).
 :- use_module(library(uri)).
+:- use_module(library(socket)).
 
 normalize_target(Input0, Target) :-
     normalize_space(string(Input), Input0),
@@ -23,6 +24,7 @@ normalize_target(Input0, Target) :-
     split_string(Host1, ":", "", [Host2|_]),
     string_lower(Host2, Lower),
     valid_target_chars(Lower),
+    public_target(Lower),
     Target = Lower.
 
 valid_target_chars(Target) :-
@@ -42,6 +44,29 @@ host_string(Host, String) :-
 host_string(Host, String) :-
     atom(Host),
     atom_string(Host, String).
+
+public_target(Target) :-
+    \+ memberchk(Target, ["localhost", "ip6-localhost", "ip6-loopback"]),
+    atom_string(TargetAtom, Target),
+    catch(tcp_host_to_address(TargetAtom, Address), _, fail),
+    public_address(Address).
+
+public_address(ip(A, B, _, _)) :-
+    !,
+    \+ private_ipv4(A, B).
+public_address(_).
+
+private_ipv4(0, _).
+private_ipv4(10, _).
+private_ipv4(127, _).
+private_ipv4(169, 254).
+private_ipv4(172, B) :- between(16, 31, B).
+private_ipv4(192, 168).
+private_ipv4(100, B) :- between(64, 127, B).
+private_ipv4(192, 0).
+private_ipv4(198, 18).
+private_ipv4(198, 19).
+private_ipv4(A, _) :- A >= 224.
 
 probe_target(Input, Facts, Observations) :-
     (   normalize_target(Input, Target)

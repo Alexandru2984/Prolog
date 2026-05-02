@@ -25,7 +25,7 @@
 :- http_handler(root(api/audit), auth_wrap(api_audit), []).
 :- http_handler(root('public/css/app.css'), serve_css, []).
 :- http_handler(root('public/js/app.js'), serve_js, []).
-:- http_handler(root(exports), http_reply_from_files('data/exports', []), [prefix]).
+:- http_handler(root(exports), auth_wrap(export_file), [prefix]).
 
 start_server(Host, Port) :-
     Address = Host:Port,
@@ -58,6 +58,24 @@ serve_css(Request) :-
 
 serve_js(Request) :-
     http_reply_file('public/js/app.js', [mime_type('application/javascript')], Request).
+
+export_file(Request) :-
+    memberchk(path(Path), Request),
+    atom_concat('/exports/', File, Path),
+    safe_export_name(File),
+    !,
+    directory_file_path('data/exports', File, LocalPath),
+    http_reply_file(LocalPath, [], Request).
+export_file(Request) :-
+    memberchk(path(Path), Request),
+    throw(http_reply(not_found(Path))).
+
+safe_export_name(File) :-
+    atom(File),
+    File \= '',
+    \+ sub_atom(File, _, _, _, '/'),
+    \+ sub_atom(File, _, _, _, '..'),
+    (file_name_extension(_, json, File) ; file_name_extension(_, md, File)).
 
 home(_Request) :-
     reply_html_page(
@@ -168,6 +186,10 @@ facts_html([Key|Rest], Facts) -->
     ])),
     facts_html(Rest, Facts).
 
+results_page(Request) :-
+    \+ memberchk(method(post), Request),
+    !,
+    reply_json_dict(_{error:"method_not_allowed", allowed:["POST"]}, [status(405)]).
 results_page(Request) :-
     http_read_data(Request, FormData, [form_data(mime)]),
     forms:facts_from_form(FormData, ManualFacts),
@@ -298,6 +320,10 @@ session_items([Session|Rest]) -->
     html(li([code(Session.file), a([href(Href)], 'Open JSON')])),
     session_items(Rest).
 
+api_audit(Request) :-
+    \+ memberchk(method(post), Request),
+    !,
+    reply_json_dict(_{error:"method_not_allowed", allowed:["POST"]}, [status(405)]).
 api_audit(Request) :-
     http_read_json_dict(Request, Dict),
     facts_from_json(Dict.get(facts), AuditFacts),

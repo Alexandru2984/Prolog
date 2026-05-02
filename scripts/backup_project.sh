@@ -8,12 +8,12 @@ OUT="$BACKUP_DIR/prolog-security-$STAMP.tar.gz"
 
 mkdir -p "$BACKUP_DIR"
 tar -czf "$OUT" \
-  --exclude="$APP_DIR/.git" \
-  --exclude="$APP_DIR/.env" \
-  --exclude="$APP_DIR/logs" \
-  --exclude="$APP_DIR/data/backups" \
-  --exclude="$APP_DIR/data/exports" \
-  --exclude="$APP_DIR/data/uploads" \
+  --exclude="./.git" \
+  --exclude="./.env" \
+  --exclude="./logs" \
+  --exclude="./data/backups" \
+  --exclude="./data/exports" \
+  --exclude="./data/uploads" \
   -C "$APP_DIR" .
 
 VERIFY_DIR="$(mktemp -d)"
