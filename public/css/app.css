@@ -167,12 +167,22 @@ h2 {
 }
 
 .actions,
+.quick_scan,
 .result_links,
 .form_toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: end;
+}
+
+.quick_scan {
+  max-width: 720px;
+  align-items: stretch;
+}
+
+.quick_scan input {
+  flex: 1 1 280px;
 }
 
 .button,
@@ -236,6 +246,20 @@ button:hover { filter: brightness(1.08); }
   font-size: 20px;
 }
 
+.scan_intro {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  background: linear-gradient(135deg, rgba(69, 199, 255, .12), rgba(11, 18, 16, .9));
+  box-shadow: var(--shadow);
+}
+
+.scan_intro h2 {
+  font-size: clamp(26px, 4vw, 46px);
+}
+
 .cards,
 .risk_grid,
 .group_grid {
@@ -294,6 +318,57 @@ input[type="text"] {
   border: 1px solid var(--line-strong);
   padding: 10px 12px;
   outline: none;
+}
+
+.observation_grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.observation_card {
+  display: grid;
+  gap: 8px;
+  min-height: 94px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.obs_label {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.observation_card strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.fact_list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.fact_list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.fact_list span {
+  color: var(--green);
+  font-weight: 900;
 }
 
 select:focus,

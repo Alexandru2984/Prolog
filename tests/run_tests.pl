@@ -10,6 +10,7 @@
 :- use_module(test_scoring).
 :- use_module(test_recommendations).
 :- use_module(test_export).
+:- use_module(test_target_probe).
 
 run_tests :-
     plunit:run_tests,

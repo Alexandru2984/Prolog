@@ -50,16 +50,18 @@ safe_label(Label, Safe) :-
     string_lower(Label, Lower),
     string_chars(Lower, Chars),
     maplist(safe_char, Chars, SafeChars0),
-    phrase(collapse_dashes(SafeChars0), SafeChars),
+    trim_edge_dashes(SafeChars0, SafeChars),
     string_chars(Safe0, SafeChars),
     (Safe0 = "" -> Safe = audit ; atom_string(Safe, Safe0)).
 
 safe_char(C, C) :- char_type(C, alnum), !.
 safe_char(_, '-').
 
-collapse_dashes([]) --> [].
-collapse_dashes(['-'|Rest]) --> ['-'], skip_dashes(Rest, Next), collapse_dashes(Next).
-collapse_dashes([C|Rest]) --> [C], { C \= '-' }, collapse_dashes(Rest).
+trim_edge_dashes(Chars, Trimmed) :-
+    drop_leading_dashes(Chars, A),
+    reverse(A, Rev),
+    drop_leading_dashes(Rev, B),
+    reverse(B, Trimmed).
 
-skip_dashes(['-'|Rest], Next) :- !, skip_dashes(Rest, Next).
-skip_dashes(Rest, Rest).
+drop_leading_dashes(['-'|Rest], Out) :- !, drop_leading_dashes(Rest, Out).
+drop_leading_dashes(Out, Out).

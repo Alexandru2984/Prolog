@@ -16,6 +16,7 @@
 :- use_module(html_layout, []).
 :- use_module(persistence).
 :- use_module(export).
+:- use_module(target_probe).
 
 :- http_handler(root(.), auth_wrap(home), []).
 :- http_handler(root(audit), auth_wrap(audit_page), []).
@@ -67,8 +68,12 @@ home(_Request) :-
                     p(class(eyebrow), 'Rule-based VPS and web posture analysis'),
                     h2('Defensive security decisions, explained by Prolog rules'),
                     p('Describe the facts of a VPS, web application, reverse proxy, TLS setup, Cloudflare posture, uploads, backups, monitoring, and logging. The engine infers risks, explanations, recommendations, checklist items, and a deterministic score.'),
+                    form([class(quick_scan), method(get), action('/audit')], [
+                        input([type(text), name(target), value('prolog.micutu.com'), maxlength(253), placeholder('domain or IP')]),
+                        button([class(button), type(submit)], 'Audit target')
+                    ]),
                     div(class(actions), [
-                        a([class(button), href('/audit')], 'Run an audit'),
+                        a([class('button secondary'), href('/audit')], 'Open full audit'),
                         a([class('button secondary'), href('/sessions')], 'Saved reports')
                     ])
                 ]),
@@ -99,17 +104,25 @@ profile_cards_([Id-Label|Rest]) -->
     profile_cards_(Rest).
 
 audit_page(Request) :-
-    http_parameters(Request, [profile(Profile, [default(default)])]),
+    http_parameters(Request, [
+        profile(Profile, [default(default)]),
+        target(Target, [default('prolog.micutu.com')])
+    ]),
     atom_string(ProfileAtom, Profile),
     forms:facts_for_profile(ProfileAtom, SelectedFacts),
     reply_html_page(
         title('Run audit'),
         \layout_page('Run Audit', [
+            section(class(scan_intro), [
+                h2('Audit a VPS, site, or app endpoint'),
+                p('Enter a domain or IP. The app performs passive HTTP/HTTPS checks for Cloudflare, TLS, HSTS, CSP, and common security headers. The toggles below are manual assumptions for things that cannot be verified safely from outside, such as backups, SSH policy, database exposure, uploads, and monitoring.')
+            ]),
             form([class(audit_form), method(post), action('/results')], [
                 div(class(form_toolbar), [
+                    label([span('Target domain/IP'), input([type(text), name(target), value(Target), maxlength(253), placeholder('example.com')])]),
                     label([span('Sample profile'), \profile_select(ProfileAtom)]),
                     label([span('Report label'), input([type(text), name(label), value('production-audit'), maxlength(80)])]),
-                    button([class(button), type(submit)], 'Analyze')
+                    button([class(button), type(submit)], 'Run passive audit')
                 ]),
                 \fact_groups_form(SelectedFacts)
             ])
@@ -157,7 +170,10 @@ facts_html([Key|Rest], Facts) -->
 
 results_page(Request) :-
     http_read_data(Request, FormData, [form_data(mime)]),
-    forms:facts_from_form(FormData, AuditFacts),
+    forms:facts_from_form(FormData, ManualFacts),
+    form_value(FormData, target, TargetInput, "prolog.micutu.com"),
+    target_probe:probe_target(TargetInput, DetectedFacts, Observations),
+    target_probe:merge_detected_facts(ManualFacts, DetectedFacts, AuditFacts),
     audit_engine:audit(AuditFacts, Result),
     form_label(FormData, Label),
     persistence:save_audit_session(Label, AuditFacts, Result, JsonPath, MarkdownPath),
@@ -169,6 +185,8 @@ results_page(Request) :-
         title('Audit results'),
         \layout_page('Audit Results', [
             \score_block(Result),
+            section(class(panel), [h3('What was audited'), \observation_cards(Observations)]),
+            section(class(panel), [h3('Auto-detected facts'), \detected_facts_list(DetectedFacts)]),
             div(class(result_links), [
                 a([class('button secondary'), href(JsonHref)], 'Export JSON'),
                 a([class('button secondary'), href(MdHref)], 'Export Markdown'),
@@ -181,7 +199,24 @@ results_page(Request) :-
         ])).
 
 form_label(FormData, Label) :-
-    (memberchk("label"=Label0, FormData), Label0 \= "" -> Label = Label0 ; Label = "audit").
+    (form_value(FormData, label, Label0, ""), Label0 \= "" -> Label = Label0 ; Label = "audit").
+
+form_value(FormData, Key, Value, Default) :-
+    atom_string(Key, KeyString),
+    (   member(Pair, FormData),
+        Pair = (RawKey=Value),
+        key_matches(RawKey, KeyString)
+    ->  true
+    ;   Value = Default
+    ).
+
+key_matches(Key, KeyString) :-
+    string(Key),
+    !,
+    Key == KeyString.
+key_matches(Key, KeyString) :-
+    atom(Key),
+    atom_string(Key, KeyString).
 
 score_block(Result) -->
     html(section(class(score_panel), [
@@ -202,6 +237,26 @@ risk_cards_([risk(Severity, Id)|Rest]) -->
         p(Explanation)
     ])),
     risk_cards_(Rest).
+
+observation_cards(Observations) -->
+    html(div(class(observation_grid), \observation_cards_(Observations))).
+observation_cards_([]) --> [].
+observation_cards_([Obs|Rest]) -->
+    html(article(class(observation_card), [
+        span(class(obs_label), Obs.label),
+        strong(Obs.value)
+    ])),
+    observation_cards_(Rest).
+
+detected_facts_list([]) -->
+    html(p(class(empty), 'No target facts were detected. The result uses only manual assumptions.')).
+detected_facts_list(Facts) -->
+    html(ul(class(fact_list), \detected_fact_items(Facts))).
+detected_fact_items([]) --> [].
+detected_fact_items([Fact|Rest]) -->
+    { Fact =.. [Name, Value] },
+    html(li([code(Name), span(Value)])),
+    detected_fact_items(Rest).
 
 recommendation_list(Recs) -->
     html(ul(class(clean_list), \recommendation_items(Recs))).
