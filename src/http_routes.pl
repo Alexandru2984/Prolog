@@ -22,7 +22,8 @@
 :- http_handler(root(results), auth_wrap(results_page), []).
 :- http_handler(root(sessions), auth_wrap(sessions_page), []).
 :- http_handler(root(api/audit), auth_wrap(api_audit), []).
-:- http_handler(root(public), http_reply_from_files('public', []), [prefix]).
+:- http_handler(root('public/css/app.css'), serve_css, []).
+:- http_handler(root('public/js/app.js'), serve_js, []).
 :- http_handler(root(exports), http_reply_from_files('data/exports', []), [prefix]).
 
 start_server(Host, Port) :-
@@ -50,6 +51,12 @@ authorized(Request) :-
     base64:base64(Decoded, Encoded),
     atomic_list_concat([UserAtom, PassAtom], ':', Expected),
     atom_string(Expected, Decoded).
+
+serve_css(Request) :-
+    http_reply_file('public/css/app.css', [mime_type('text/css')], Request).
+
+serve_js(Request) :-
+    http_reply_file('public/js/app.js', [mime_type('application/javascript')], Request).
 
 home(_Request) :-
     reply_html_page(
